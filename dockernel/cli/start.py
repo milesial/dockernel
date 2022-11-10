@@ -1,4 +1,5 @@
 import json
+import os
 from argparse import Namespace
 from pathlib import Path
 
@@ -42,7 +43,15 @@ def set_connection_ip(connection_file: Path, ip: str = '0.0.0.0'):
 
 
 def start(parsed_args: Namespace) -> int:
-    containers = docker.from_env().containers
+    client = docker.from_env()
+    name_split = parsed_args.image_name.split(':')
+    if len(name_split) == 2:
+        image, tag = name_split
+    else:
+        image, tag = parsed_args.image_name, None
+
+    client.images.pull(image, tag)
+    containers = client.containers
     image_name = parsed_args.image_name
     connection_file = Path(parsed_args.connection_file)
 
@@ -60,18 +69,25 @@ def start(parsed_args: Namespace) -> int:
         read_only=False
     )
 
-    env_vars = {
-        CONTAINER_CONNECTION_SPEC_ENV_VAR: CONTAINER_CONNECTION_SPEC_PATH
-    }
+    wd_mount = docker.types.Mount(
+        target='/working_dir',
+        source=os.getcwd(),
+        type='bind',
+        read_only=False
+    )
 
     # TODO: parametrize possible mounts
     # TODO: log stdout and stderr
     # TODO: use detached=True?
     containers.run(
         image_name,
+        command='python -m ipykernel_launcher -f ' + str(CONTAINER_CONNECTION_SPEC_PATH),
+        working_dir='/working_dir',
+        privileged=True,
+        ipc_mode='host',
+        device_requests=[docker.types.DeviceRequest(count=-1, capabilities=[['gpu']])],
         auto_remove=True,
-        environment=env_vars,
-        mounts=[connection_file_mount],
+        mounts=[wd_mount, connection_file_mount],
         network_mode='bridge',
         ports=port_mapping,
         stdout=True,

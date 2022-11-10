@@ -39,9 +39,9 @@ JUPYTER_CONNECTION_FILE_TEMPLATE = '{connection_file}'
 def python_argv(system_type: str) -> List[str]:
     """Return proper command-line vector for python interpreter"""
     if system_type == "Linux" or system_type == "Darwin":
-        argv = ['/usr/bin/env', 'python', '-m']
+        argv = ['/usr/bin/env', 'python3', '-m']
     elif system_type == "Windows":
-        argv = ['python', '-m']
+        argv = ['python3', '-m']
     else:
         raise ValueError(f'unknown system type: {system_type}')
     return argv
@@ -55,8 +55,7 @@ def generate_kernelspec_argv(image_name: str, system_type: str) -> List[str]:
 
 def image_digest(docker_client: docker.client.DockerClient,
                  image_name: str) -> str:
-    image = docker_client.images.get(image_name)
-    return image.attrs['ContainerConfig']['Hostname']
+    return image_name.replace(':', '__').replace('/', '__')
 
 
 def install(args: Namespace) -> int:
